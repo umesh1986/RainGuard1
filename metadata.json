@@ -1,0 +1,8 @@
+{
+  "name": "MonsoonReady",
+  "description": "GenAI-powered personalized monsoon season preparedness dashboard with real-time weather alerts, emergency checklists, smart home automation, travel advisories, multilingual assistant, and secure MFA profile.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
