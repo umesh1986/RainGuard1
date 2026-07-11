@@ -44,6 +44,7 @@ import {
   ChatMessage,
   WeatherAlert
 } from "./types";
+import { calculatePhysicalMetrics, getSmartDeviceState } from "./utils";
 
 // Default cities for weather simulation
 interface SimulatedCity {
@@ -350,38 +351,25 @@ export default function App() {
   useEffect(() => {
     if (isFetchingLiveWeather) return; // Don't overwrite live online values while fetching!
 
-    // 0 -> 100 intensity maps to physical values
-    const rain = Math.round(monsoonIntensity * 0.6); // 0 to 60 mm/hr
-    const water = parseFloat((monsoonIntensity * 0.012).toFixed(2)); // 0 to 1.2 meters
-    const grid = Math.max(100 - Math.round(monsoonIntensity * 0.4), 0); // 100% down to 60%
-    const wind = Math.round(monsoonIntensity * 0.55); // 0 to 55 knots
+    const metrics = calculatePhysicalMetrics(monsoonIntensity);
 
-    setSimulatedRainfall(rain);
-    setSimulatedWaterLevel(water);
-    setSimulatedPowerGrid(grid);
-    setSimulatedWindSpeed(wind);
+    setSimulatedRainfall(metrics.rain);
+    setSimulatedWaterLevel(metrics.water);
+    setSimulatedPowerGrid(metrics.grid);
+    setSimulatedWindSpeed(metrics.wind);
   }, [monsoonIntensity, isFetchingLiveWeather]);
 
   // Autopilot effects can depend on the actual variables instead!
   useEffect(() => {
     if (autoPilotMode) {
       setSmartDevices(prev => prev.map(dev => {
-        let newState = dev.state;
-        if (dev.id === "dev-1") {
-          newState = simulatedWaterLevel > 0.5 ? "CLOSED (PROTECTIVE)" : "SAFE / OPEN";
-        } else if (dev.id === "dev-2") {
-          if (monsoonIntensity > 75) {
-            newState = "RUNNING (HIGH FORCE)";
-          } else if (monsoonIntensity > 40) {
-            newState = "RUNNING (ACTIVE)";
-          } else {
-            newState = "STANDBY";
-          }
-        } else if (dev.id === "dev-3") {
-          newState = simulatedWindSpeed > 25 ? "CLOSED (REINFORCED)" : "UP";
-        } else if (dev.id === "dev-4") {
-          newState = simulatedPowerGrid < 70 ? "ACTIVE (SUPPLYING POWER)" : "CHARGED (100%)";
-        }
+        const metrics = {
+          rain: simulatedRainfall,
+          water: simulatedWaterLevel,
+          grid: simulatedPowerGrid,
+          wind: simulatedWindSpeed
+        };
+        const newState = getSmartDeviceState(dev.id, metrics, monsoonIntensity);
         return { ...dev, state: newState };
       }));
     }
@@ -951,7 +939,7 @@ export default function App() {
             <div className="space-y-4 relative z-10">
               <div>
                 <div className="flex justify-between text-xs font-mono mb-2">
-                  <span className="text-gray-400">Monsoon Level</span>
+                  <label className="text-gray-400" htmlFor="intensity-range-slider">Monsoon Level</label>
                   <span className="text-amber-400 font-bold">{monsoonIntensity}%</span>
                 </div>
                 <input
@@ -1117,6 +1105,9 @@ export default function App() {
               return (
                 <button
                   key={tab.id}
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={`tab-panel-${tab.id}`}
                   onClick={() => setActiveTab(tab.id as any)}
                   className={`flex items-center space-x-2 px-4 py-2.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap cursor-pointer ${
                     isActive
@@ -1139,11 +1130,13 @@ export default function App() {
           {/* TAB 1: OVERVIEW & PLAN GENERATOR */}
           {activeTab === "dashboard" && (
             <motion.div
+              role="tabpanel"
+              id="tab-panel-dashboard"
+              aria-labelledby="tab-btn-dashboard"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               className="space-y-6"
-              id="tab-dashboard-content"
             >
               {/* ALERTS FEED */}
               <div className={`p-5 rounded-2xl border transition-all ${theme === "dark" ? "bg-[#090C12] border-white/5" : "bg-white border-gray-200 shadow-sm"}`} id="alerts-log-container">
@@ -1265,7 +1258,7 @@ export default function App() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     
                     <div className="space-y-2">
-                      <label className="text-xs text-gray-400 font-mono font-medium">Select Region & Target Climate:</label>
+                      <label className="text-xs text-gray-400 font-mono font-medium" htmlFor="form-city-selector">Select Region & Target Climate:</label>
                       <select
                         value={selectedCity}
                         onChange={(e) => handleCityChange(e.target.value)}
@@ -1279,7 +1272,7 @@ export default function App() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs text-gray-400 font-mono font-medium">Housing Infrastructure / Elevation:</label>
+                      <label className="text-xs text-gray-400 font-mono font-medium" htmlFor="form-housing-selector">Housing Infrastructure / Elevation:</label>
                       <select
                         value={housingType}
                         onChange={(e) => setHousingType(e.target.value)}
@@ -1295,7 +1288,7 @@ export default function App() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs text-gray-400 font-mono font-medium">Household Size (Members):</label>
+                      <label className="text-xs text-gray-400 font-mono font-medium" htmlFor="form-family-input">Household Size (Members):</label>
                       <input
                         type="number"
                         min="1"
@@ -1308,7 +1301,7 @@ export default function App() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs text-gray-400 font-mono font-medium">Preferred Support Language:</label>
+                      <label className="text-xs text-gray-400 font-mono font-medium" htmlFor="form-language-selector">Preferred Support Language:</label>
                       <select
                         value={language}
                         onChange={(e) => setLanguage(e.target.value)}
@@ -1332,6 +1325,7 @@ export default function App() {
                       
                       <button
                         type="button"
+                        aria-pressed={hasChildren}
                         onClick={() => setHasChildren(prev => !prev)}
                         className={`p-3 rounded-xl border text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
                           hasChildren
@@ -1350,6 +1344,7 @@ export default function App() {
 
                       <button
                         type="button"
+                        aria-pressed={hasElderly}
                         onClick={() => setHasElderly(prev => !prev)}
                         className={`p-3 rounded-xl border text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
                           hasElderly
@@ -1368,6 +1363,7 @@ export default function App() {
 
                       <button
                         type="button"
+                        aria-pressed={hasPets}
                         onClick={() => setHasPets(prev => !prev)}
                         className={`p-3 rounded-xl border text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
                           hasPets
@@ -1386,6 +1382,7 @@ export default function App() {
 
                       <button
                         type="button"
+                        aria-pressed={hasMobilityIssues}
                         onClick={() => setHasMobilityIssues(prev => !prev)}
                         className={`p-3 rounded-xl border text-xs font-semibold flex items-center space-x-2 transition-all cursor-pointer ${
                           hasMobilityIssues
@@ -1408,6 +1405,7 @@ export default function App() {
                   <div className="flex items-center space-x-3 pt-2">
                     <button
                       type="button"
+                      aria-pressed={smartHomeEnabled}
                       onClick={() => setSmartHomeEnabled(prev => !prev)}
                       className={`flex items-center space-x-2 p-1 px-3.5 py-2.5 rounded-xl border transition-all text-xs font-bold cursor-pointer ${
                         smartHomeEnabled
@@ -1518,10 +1516,12 @@ export default function App() {
           {/* TAB 2: INTERACTIVE CHECKLISTS */}
           {activeTab === "checklist" && (
             <motion.div
+              role="tabpanel"
+              id="tab-panel-checklist"
+              aria-labelledby="tab-btn-checklist"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
-              id="tab-checklist-content"
             >
               <div className={`p-6 rounded-2xl border transition-all ${theme === "dark" ? "bg-[#090C12] border-white/5" : "bg-white border-gray-200 shadow-sm"}`}>
                 <div className={`border-b pb-4 mb-5 flex items-center justify-between ${theme === "dark" ? "border-white/5" : "border-gray-200/60"}`}>
@@ -1612,7 +1612,7 @@ export default function App() {
 
                 {/* ADD CUSTOM TASK FORM */}
                 <div className={`border-t pt-6 ${theme === "dark" ? "border-white/5" : "border-gray-200/60"}`}>
-                  <h4 className="text-xs font-mono font-bold text-gray-400 uppercase tracking-wider mb-3">Add Custom Safety Action Item</h4>
+                  <label className="block text-xs font-mono font-bold text-gray-400 uppercase tracking-wider mb-3" htmlFor="custom-task-input">Add Custom Safety Action Item</label>
                   <form onSubmit={handleAddCustomChecklistItem} className="grid grid-cols-1 md:grid-cols-12 gap-4">
                     <div className="md:col-span-6">
                       <input
@@ -1670,10 +1670,12 @@ export default function App() {
           {/* TAB 3: SMART HOME INTEGRATION */}
           {activeTab === "smarthome" && (
             <motion.div
+              role="tabpanel"
+              id="tab-panel-smarthome"
+              aria-labelledby="tab-btn-smarthome"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
-              id="tab-smarthome-content"
             >
               <div className={`p-6 rounded-2xl border transition-all ${theme === "dark" ? "bg-[#090C12] border-white/5" : "bg-white border-gray-200 shadow-sm"}`}>
                 <div className={`border-b pb-4 mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${theme === "dark" ? "border-white/5" : "border-gray-200/60"}`}>
@@ -1791,10 +1793,12 @@ export default function App() {
           {/* TAB 4: WEATHER ROUTING */}
           {activeTab === "route" && (
             <motion.div
+              role="tabpanel"
+              id="tab-panel-route"
+              aria-labelledby="tab-btn-route"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
-              id="tab-routing-content"
             >
               <div className={`p-6 rounded-2xl border transition-all ${theme === "dark" ? "bg-[#090C12] border-white/5" : "bg-white border-gray-200 shadow-sm"}`}>
                 <div className={`border-b pb-4 mb-5 ${theme === "dark" ? "border-white/5" : "border-gray-200/60"}`}>
@@ -1806,7 +1810,7 @@ export default function App() {
 
                 <form onSubmit={handleAnalyzeRoute} className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
                   <div className="md:col-span-4 space-y-1">
-                    <label className="text-[10px] font-mono text-gray-400 block font-medium">Starting Location:</label>
+                    <label className="text-[10px] font-mono text-gray-400 block font-medium" htmlFor="route-start-input">Starting Location:</label>
                     <input
                       type="text"
                       required
@@ -1819,7 +1823,7 @@ export default function App() {
                   </div>
 
                   <div className="md:col-span-4 space-y-1">
-                    <label className="text-[10px] font-mono text-gray-400 block font-medium">Destination:</label>
+                    <label className="text-[10px] font-mono text-gray-400 block font-medium" htmlFor="route-end-input">Destination:</label>
                     <input
                       type="text"
                       required
@@ -1832,7 +1836,7 @@ export default function App() {
                   </div>
 
                   <div className="md:col-span-3 space-y-1">
-                    <label className="text-[10px] font-mono text-gray-400 block font-medium">Transportation Mode:</label>
+                    <label className="text-[10px] font-mono text-gray-400 block font-medium" htmlFor="route-transport-select">Transportation Mode:</label>
                     <select
                       value={routeTransport}
                       onChange={(e) => setRouteTransport(e.target.value)}
@@ -1950,10 +1954,12 @@ export default function App() {
           {/* TAB 5: MULTILINGUAL CHAT */}
           {activeTab === "chat" && (
             <motion.div
+              role="tabpanel"
+              id="tab-panel-chat"
+              aria-labelledby="tab-btn-chat"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
-              id="tab-chat-content"
             >
               <div className={`p-6 rounded-2xl border transition-all ${theme === "dark" ? "bg-[#090C12] border-white/5" : "bg-white border-gray-200 shadow-sm"}`}>
                 <div className={`border-b pb-4 mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${theme === "dark" ? "border-white/5" : "border-gray-200/60"}`}>
@@ -2124,7 +2130,7 @@ export default function App() {
               {/* Verification form */}
               <form onSubmit={handleVerifyMfa} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono text-gray-400 block font-medium">Verify 6-Digit Code:</label>
+                  <label className="text-[10px] font-mono text-gray-400 block font-medium" htmlFor="mfa-code-input">Verify 6-Digit Code:</label>
                   <input
                     type="text"
                     required
