@@ -832,7 +832,7 @@ export default function App() {
               <span>Location Context</span>
             </h2>
             <div className="space-y-3 relative z-10">
-              <label className="block text-xs text-gray-400 font-medium font-mono">Current Region:</label>
+              <label className="block text-xs text-gray-400 font-medium font-mono" htmlFor="city-selector">Current Region:</label>
               <select
                 value={selectedCity}
                 onChange={(e) => handleCityChange(e.target.value)}
@@ -1631,6 +1631,7 @@ export default function App() {
                         onChange={(e) => setNewChecklistCategory(e.target.value)}
                         className={`w-full p-2.5 text-xs rounded-xl border transition-all outline-none ${theme === "dark" ? "bg-white/5 border-white/10 text-white focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800"}`}
                         id="custom-task-category"
+                        aria-label="Custom action category"
                       >
                         <option value="Emergency Kit">Emergency Kit</option>
                         <option value="Home Protection">Home Protection</option>
@@ -1644,6 +1645,7 @@ export default function App() {
                         onChange={(e) => setNewChecklistPriority(e.target.value)}
                         className={`w-full p-2.5 text-xs rounded-xl border transition-all outline-none ${theme === "dark" ? "bg-white/5 border-white/10 text-white focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800"}`}
                         id="custom-task-priority"
+                        aria-label="Custom action priority"
                       >
                         <option value="High">High Priority</option>
                         <option value="Medium">Medium</option>
@@ -1971,7 +1973,7 @@ export default function App() {
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <span className="text-[10px] font-mono text-gray-400">Language:</span>
+                    <label htmlFor="chat-language-select" className="text-[10px] font-mono text-gray-400">Language:</label>
                     <select
                       value={chatLanguage}
                       onChange={(e) => setChatLanguage(e.target.value)}
@@ -2061,6 +2063,7 @@ export default function App() {
                     onChange={(e) => setChatInput(e.target.value)}
                     className={`flex-1 p-3 text-xs rounded-xl border transition-all outline-none ${theme === "dark" ? "bg-white/5 border-white/10 text-white focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800"}`}
                     id="chat-text-input"
+                    aria-label="Ask MonsoonReady AI assistant"
                   />
                   <button
                     type="submit"

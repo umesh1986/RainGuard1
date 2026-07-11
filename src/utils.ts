@@ -41,3 +41,50 @@ export function getSmartDeviceState(
   }
   return "";
 }
+
+/**
+ * Validates whether a 6-digit MFA code is numeric and of length 6.
+ */
+export function validateMfaCode(code: string): boolean {
+  if (!code) return false;
+  const trimmed = code.trim();
+  return trimmed.length === 6 && /^\d+$/.test(trimmed);
+}
+
+/**
+ * Validates standard email addresses.
+ */
+export function validateEmail(email: string): boolean {
+  if (!email) return false;
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(email.trim());
+}
+
+/**
+ * Sanitizes location input to ensure safe display or passing to external services.
+ */
+export function sanitizeLocation(location: string): string {
+  if (!location) return "";
+  return location.replace(/[<>]/g, "").trim();
+}
+
+/**
+ * Parses and returns a safe household size integer between 1 and 20.
+ */
+export function parseHouseholdSize(size: any): number {
+  const parsed = parseInt(size, 10);
+  if (isNaN(parsed) || parsed < 1) return 1;
+  if (parsed > 20) return 20;
+  return parsed;
+}
+
+/**
+ * Rates the severity level of monsoon parameters (Rainfall mm/hr, Water Level meters, Wind knots)
+ * returns "Low", "Medium", "High", or "Extreme"
+ */
+export function evaluateSeverity(rain: number, water: number, wind: number): "Low" | "Medium" | "High" | "Extreme" {
+  if (rain >= 50 || water >= 1.0 || wind >= 40) return "Extreme";
+  if (rain >= 30 || water >= 0.6 || wind >= 25) return "High";
+  if (rain >= 10 || water >= 0.2 || wind >= 12) return "Medium";
+  return "Low";
+}
